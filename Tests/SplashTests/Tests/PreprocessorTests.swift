@@ -62,6 +62,46 @@ final class PreprocessorTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testAvailabilityCheck() {
+        let components = highlighter.highlight("if #available(iOS 13, *) {}")
+
+        XCTAssertEqual(components, [
+            .token("if", .keyword),
+            .whitespace(" "),
+            .token("#available", .keyword),
+            .plainText("(iOS"),
+            .whitespace(" "),
+            .token("13", .number),
+            .plainText(","),
+            .whitespace(" "),
+            .plainText("*)"),
+            .whitespace(" "),
+            .plainText("{}")
+        ])
+    }
+
+    func testWarningDirective() {
+        let components = highlighter.highlight(#"#warning("Hey!")"#)
+
+        XCTAssertEqual(components, [
+            .token("#warning", .preprocessing),
+            .plainText("("),
+            .token(#""Hey!""#, .string),
+            .plainText(")")
+        ])
+    }
+
+    func testErrorDirective() {
+        let components = highlighter.highlight(#"#error("No!")"#)
+
+        XCTAssertEqual(components, [
+            .token("#error", .preprocessing),
+            .plainText("("),
+            .token(#""No!""#, .string),
+            .plainText(")")
+        ])
+    }
+
     func testAllTestsRunOnLinux() {
         XCTAssertTrue(TestCaseVerifier.verifyLinuxTests((type(of: self)).allTests))
     }
@@ -72,7 +112,10 @@ extension PreprocessorTests {
         return [
             ("testPreprocessing", testPreprocessing),
             ("testSelector", testSelector),
-            ("testFunctionAttribute", testFunctionAttribute)
+            ("testFunctionAttribute", testFunctionAttribute),
+            ("testAvailabilityCheck", testAvailabilityCheck),
+            ("testWarningDirective", testWarningDirective),
+            ("testErrorDirective", testErrorDirective)
         ]
     }
 }

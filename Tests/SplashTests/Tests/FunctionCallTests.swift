@@ -23,6 +23,17 @@ final class FunctionCallTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testFunctionCallWithNil() {
+        let components = highlighter.highlight("handler(nil)")
+
+        XCTAssertEqual(components, [
+            .token("handler", .call),
+            .plainText("("),
+            .token("nil", .keyword),
+            .plainText(")")
+        ])
+    }
+
     func testImplicitInitializerCall() {
         let components = highlighter.highlight("let string = String()")
 
@@ -50,7 +61,7 @@ final class FunctionCallTests: SyntaxHighlighterTestCase {
             .whitespace(" "),
             .token("String", .type),
             .plainText("."),
-            .token("init", .call),
+            .token("init", .keyword),
             .plainText("()")
         ])
     }
@@ -130,6 +141,26 @@ final class FunctionCallTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testIndentedFunctionCalls() {
+        let components = highlighter.highlight("""
+        variable
+            .callOne()
+            .callTwo()
+        """)
+
+        XCTAssertEqual(components, [
+            .plainText("variable"),
+            .whitespace("\n    "),
+            .plainText("."),
+            .token("callOne", .call),
+            .plainText("()"),
+            .whitespace("\n    "),
+            .plainText("."),
+            .token("callTwo", .call),
+            .plainText("()")
+        ])
+    }
+
     func testXCTAssertCalls() {
         let components = highlighter.highlight("XCTAssertTrue(variable)")
 
@@ -148,6 +179,7 @@ extension FunctionCallTests {
     static var allTests: [(String, TestClosure<FunctionCallTests>)] {
         return [
             ("testFunctionCallWithIntegers", testFunctionCallWithIntegers),
+            ("testFunctionCallWithNil", testFunctionCallWithNil),
             ("testImplicitInitializerCall", testImplicitInitializerCall),
             ("testExplicitInitializerCall", testExplicitInitializerCall),
             ("testDotSyntaxInitializerCall", testDotSyntaxInitializerCall),
@@ -156,6 +188,7 @@ extension FunctionCallTests {
             ("testCallingStaticMethodOnGenericType", testCallingStaticMethodOnGenericType),
             ("testPassingTypeToFunction", testPassingTypeToFunction),
             ("testPassingBoolToUnnamedArgument", testPassingBoolToUnnamedArgument),
+            ("testIndentedFunctionCalls", testIndentedFunctionCalls),
             ("testXCTAssertCalls", testXCTAssertCalls)
         ]
     }

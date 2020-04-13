@@ -112,6 +112,67 @@ final class CommentTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testCommentStartingWithPunctuation() {
+        let components = highlighter.highlight("//.call()")
+        XCTAssertEqual(components, [.token("//.call()", .comment)])
+    }
+
+    func testCommentEndingWithComma() {
+        let components = highlighter.highlight("""
+        // Hello,
+        class World {}
+        """)
+
+        XCTAssertEqual(components, [
+            .token("//", .comment),
+            .whitespace(" "),
+            .token("Hello,", .comment),
+            .whitespace("\n"),
+            .token("class", .keyword),
+            .whitespace(" "),
+            .plainText("World"),
+            .whitespace(" "),
+            .plainText("{}")
+        ])
+    }
+        
+    func testCommentWithNumber() {
+        let components = highlighter.highlight("// 1")
+
+        XCTAssertEqual(components, [
+            .token("//", .comment),
+            .whitespace(" "),
+            .token("1", .comment)
+        ])
+    }
+
+    func testCommentWithNoWhiteSpaceToPunctuation() {
+        let components = highlighter.highlight("""
+        (/* Hello */)
+        .// World
+        (/**/)
+        """)
+
+         XCTAssertEqual(components, [
+            .plainText("("),
+            .token("/*", .comment),
+            .whitespace(" "),
+            .token("Hello", .comment),
+            .whitespace(" "),
+            .token("*/", .comment),
+            .plainText(")"),
+            .whitespace("\n"),
+            .plainText("."),
+            .token("//", .comment),
+            .whitespace(" "),
+            .token("World", .comment),
+            .whitespace("\n"),
+            .plainText("("),
+            .token("/**/", .comment),
+            .plainText(")"),
+        ])
+    }
+
     func testAllTestsRunOnLinux() {
         XCTAssertTrue(TestCaseVerifier.verifyLinuxTests((type(of: self)).allTests))
     }
@@ -123,7 +184,11 @@ extension CommentTests {
             ("testSingleLineComment", testSingleLineComment),
             ("testMultiLineComment", testMultiLineComment),
             ("testMultiLineCommentWithDoubleAsterisks", testMultiLineCommentWithDoubleAsterisks),
-            ("testMutliLineDocumentationComment", testMutliLineDocumentationComment)
+            ("testMutliLineDocumentationComment", testMutliLineDocumentationComment),
+            ("testCommentStartingWithPunctuation", testCommentStartingWithPunctuation),
+            ("testCommentEndingWithComma", testCommentEndingWithComma),
+            ("testCommentWithNumber", testCommentWithNumber),
+            ("testCommentWithNoWhiteSpaceToPunctuation", testCommentWithNoWhiteSpaceToPunctuation)
         ]
     }
 }

@@ -76,6 +76,16 @@ final class LiteralTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testStringLiteralWithInterpolatedClosureArgumentShorthand() {
+        let components = highlighter.highlight(#""\($0)""#)
+
+        XCTAssertEqual(components, [
+            .token("\"", .string),
+            .plainText(#"\($0)"#),
+            .token("\"", .string)
+        ])
+    }
+
     func testStringLiteralWithCustomIterpolation() {
         let components = highlighter.highlight("""
         "Hello \\(label: a, b) world \\(label: call())"
@@ -96,6 +106,41 @@ final class LiteralTests: SyntaxHighlighterTestCase {
             .whitespace(" "),
             .token("call", .call),
             .plainText("())"),
+            .token("\"", .string)
+        ])
+    }
+
+    func testStringLiteralWithInterpolationSurroundedByBrackets() {
+        let components = highlighter.highlight(#""[\(text)]""#)
+
+        XCTAssertEqual(components, [
+            .token(#""["#, .string),
+            .plainText(#"\(text)"#),
+            .token(#"]""#, .string)
+        ])
+    }
+
+    func testStringLiteralWithInterpolationPrefixedByPunctuation() {
+        let components = highlighter.highlight(#"".\(text)""#)
+
+        XCTAssertEqual(components, [
+            .token("\".", .string),
+            .plainText(#"\(text)"#),
+            .token("\"", .string)
+        ])
+    }
+
+    func testStringLiteralWithInterpolationContainingString() {
+        let components = highlighter.highlight(#""\(name ?? "name")""#)
+
+        XCTAssertEqual(components, [
+            .token("\"", .string),
+            .plainText("\\(name"),
+            .whitespace(" "),
+            .plainText("??"),
+            .whitespace(" "),
+            .token("\"name\"", .string),
+            .plainText(")"),
             .token("\"", .string)
         ])
     }
@@ -177,6 +222,31 @@ final class LiteralTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testRawStringWithInterpolation() {
+        let components = highlighter.highlight("#\"Hello \\#(variable) world\"#")
+
+        XCTAssertEqual(components, [
+            .token("#\"Hello", .string),
+            .whitespace(" "),
+            .plainText("\\#(variable)"),
+            .whitespace(" "),
+            .token("world\"#", .string)
+        ])
+    }
+
+    func testStringLiteralContainingOnlyNewLine() {
+        let components = highlighter.highlight(#"text.split(separator: "\n")"#)
+
+        XCTAssertEqual(components, [
+            .plainText("text."),
+            .token("split", .call),
+            .plainText("(separator:"),
+            .whitespace(" "),
+            .token(#""\n""#, .string),
+            .plainText(")")
+        ])
+    }
+
     func testDoubleLiteral() {
         let components = highlighter.highlight("let double = 1.13")
 
@@ -223,6 +293,24 @@ final class LiteralTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testKeyPathLiteralsAsArguments() {
+        let components = highlighter.highlight(#"user.bind(\.name, to: \.text)"#)
+
+        XCTAssertEqual(components, [
+            .plainText("user."),
+            .token("bind", .call),
+            .plainText(#"(\."#),
+            .token("name", .property),
+            .plainText(","),
+            .whitespace(" "),
+            .plainText("to:"),
+            .whitespace(" "),
+            .plainText(#"\."#),
+            .token("text", .property),
+            .plainText(")")
+        ])
+    }
+
     func testAllTestsRunOnLinux() {
         XCTAssertTrue(TestCaseVerifier.verifyLinuxTests((type(of: self)).allTests))
     }
@@ -236,13 +324,20 @@ extension LiteralTests {
             ("testStringLiteralWithEscapedQuote", testStringLiteralWithEscapedQuote),
             ("testStringLiteralWithAttribute", testStringLiteralWithAttribute),
             ("testStringLiteralInterpolation", testStringLiteralInterpolation),
+            ("testStringLiteralWithInterpolatedClosureArgumentShorthand", testStringLiteralWithInterpolatedClosureArgumentShorthand),
             ("testStringLiteralWithCustomIterpolation", testStringLiteralWithCustomIterpolation),
+            ("testStringLiteralWithInterpolationSurroundedByBrackets", testStringLiteralWithInterpolationSurroundedByBrackets),
+            ("testStringLiteralWithInterpolationPrefixedByPunctuation", testStringLiteralWithInterpolationPrefixedByPunctuation),
+            ("testStringLiteralWithInterpolationContainingString", testStringLiteralWithInterpolationContainingString),
             ("testMultiLineStringLiteral", testMultiLineStringLiteral),
             ("testSingleLineRawStringLiteral", testSingleLineRawStringLiteral),
             ("testMultiLineRawStringLiteral", testMultiLineRawStringLiteral),
+            ("testRawStringWithInterpolation", testRawStringWithInterpolation),
+            ("testStringLiteralContainingOnlyNewLine", testStringLiteralContainingOnlyNewLine),
             ("testDoubleLiteral", testDoubleLiteral),
             ("testIntegerLiteralWithSeparators", testIntegerLiteralWithSeparators),
-            ("testKeyPathLiteral", testKeyPathLiteral)
+            ("testKeyPathLiteral", testKeyPathLiteral),
+            ("testKeyPathLiteralsAsArguments", testKeyPathLiteralsAsArguments)
         ]
     }
 }

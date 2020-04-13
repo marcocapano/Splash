@@ -17,6 +17,8 @@ public struct SwiftGrammar: Grammar {
         delimiters.remove("_")
         delimiters.remove("\"")
         delimiters.remove("#")
+        delimiters.remove("@")
+        delimiters.remove("$")
         self.delimiters = delimiters
 
         syntaxRules = [
@@ -35,6 +37,28 @@ public struct SwiftGrammar: Grammar {
             KeywordRule()
         ]
     }
+
+    public func isDelimiter(_ delimiterA: Character,
+                            mergableWith delimiterB: Character) -> Bool {
+        switch (delimiterA, delimiterB) {
+        case ("\\", "("):
+            return true
+        case ("\\", _), (_, "\\"):
+            return false
+        case (")", _):
+            return false
+        case ("/", "/"), ("/", "*"), ("*", "/"):
+            return true
+        case ("/", _):
+            return false
+        case ("(", _) where delimiterB != ".":
+            return false
+        case (".", "/"):
+            return false
+        default:
+            return true
+        }
+    }
 }
 
 private extension SwiftGrammar {
@@ -51,23 +75,34 @@ private extension SwiftGrammar {
         "lazy", "subscript", "defer", "inout", "while",
         "continue", "fallthrough", "repeat", "indirect",
         "deinit", "is", "#file", "#line", "#function",
-        "dynamic"
+        "dynamic", "some", "#available", "convenience", "unowned"
     ] as Set<String>).union(accessControlKeywords)
 
     static let accessControlKeywords: Set<String> = [
         "public", "internal", "fileprivate", "private"
     ]
 
+    static let declarationKeywords: Set<String> = [
+        "class", "struct", "enum", "func",
+        "protocol", "typealias", "import",
+        "associatedtype", "subscript"
+    ]
+
     struct PreprocessingRule: SyntaxRule {
         var tokenType: TokenType { return .preprocessing }
-        private let tokens = ["#if", "#endif", "#elseif", "#else"]
+        private let controlFlowTokens: Set<String> = ["#if", "#endif", "#elseif", "#else"]
+        private let directiveTokens: Set<String> = ["#warning", "#error"]
 
         func matches(_ segment: Segment) -> Bool {
-            if segment.tokens.current.isAny(of: tokens) {
+            if segment.tokens.current.isAny(of: controlFlowTokens) {
                 return true
             }
 
-            return segment.tokens.onSameLine.contains(anyOf: tokens)
+            if segment.tokens.current.isAny(of: directiveTokens) {
+                return true
+            }
+
+            return segment.tokens.onSameLine.contains(anyOf: controlFlowTokens)
         }
     }
 
@@ -75,6 +110,12 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .comment }
 
         func matches(_ segment: Segment) -> Bool {
+            if segment.tokens.current.hasPrefix("/*") {
+                if segment.tokens.current.hasSuffix("*/") {
+                    return true
+                }
+            }
+            
             if segment.tokens.current.hasPrefix("//") {
                 return true
             }
@@ -96,7 +137,7 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .keyword }
 
         func matches(_ segment: Segment) -> Bool {
-            return segment.tokens.current == "@" || segment.tokens.previous == "@"
+            return segment.tokens.current.hasPrefix("@")
         }
     }
 
@@ -104,6 +145,10 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .string }
 
         func matches(_ segment: Segment) -> Bool {
+            guard !segment.isWithinRawStringInterpolation else {
+                return false
+            }
+
             if segment.isWithinStringLiteral(withStart: "#\"", end: "\"#") {
                 return true
             }
@@ -130,11 +175,17 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .string }
 
         func matches(_ segment: Segment) -> Bool {
+            if segment.tokens.current.hasPrefix("\"") &&
+               segment.tokens.current.hasSuffix("\"") {
+                return true
+            }
+
             guard segment.isWithinStringLiteral(withStart: "\"", end: "\"") else {
                 return false
             }
 
-            return !segment.isWithinStringInterpolation
+            return !segment.isWithinStringInterpolation &&
+                   !segment.isWithinRawStringInterpolation
         }
     }
 
@@ -143,8 +194,10 @@ private extension SwiftGrammar {
 
         func matches(_ segment: Segment) -> Bool {
             // Don't match against index-based closure arguments
-            guard segment.tokens.previous != "$" else {
-                return false
+            if let previous = segment.tokens.previous {
+                guard !previous.hasSuffix("$") else {
+                    return false
+                }
             }
 
             // Integers can be separated using "_", so handle that
@@ -182,11 +235,16 @@ private extension SwiftGrammar {
 
             var callLikeKeywords = accessControlKeywords
             callLikeKeywords.insert("subscript")
+            callLikeKeywords.insert("init")
             self.callLikeKeywords = callLikeKeywords
         }
 
         func matches(_ segment: Segment) -> Bool {
-            guard segment.tokens.current.startsWithLetter else {
+            let token = segment.tokens.current.trimmingCharacters(
+                in: CharacterSet(charactersIn: "_")
+            )
+
+            guard token.startsWithLetter else {
                 return false
             }
 
@@ -205,8 +263,22 @@ private extension SwiftGrammar {
                 }
 
                 // Don't treat enums with associated values as function calls
-                guard !segment.prefixedByDotAccess else {
-                    return false
+                // when they appear within a switch statement
+                if previousToken == "." {
+                    let previousTokens = segment.tokens.onSameLine
+
+                    if previousTokens.count > 1 {
+                        let lastToken = previousTokens[previousTokens.count - 2]
+
+                        guard lastToken != "case" else {
+                            return false
+                        }
+
+                        // Multiple expressions can be matched within a single case
+                        guard !lastToken.hasSuffix(",") else {
+                            return false
+                        }
+                    }
                 }
             }
 
@@ -223,14 +295,7 @@ private extension SwiftGrammar {
                 return !segment.tokens.onSameLine.contains(anyOf: controlFlowTokens)
             }
 
-            // Check so that this is an initializer call, not the declaration
-            if segment.tokens.current == "init" {
-                guard segment.tokens.previous == "." else {
-                    return false
-                }
-            }
-
-            return segment.tokens.next.isAny(of: "(", "()", "())", "(.", "({", "().")
+            return segment.tokens.next?.starts(with: "(") ?? false
         }
     }
 
@@ -238,6 +303,16 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .keyword }
 
         func matches(_ segment: Segment) -> Bool {
+            if segment.tokens.current == "prefix" && segment.tokens.next == "func" {
+                return true
+            }
+
+            if segment.tokens.current == "some" {
+                guard segment.tokens.previous != "case" else {
+                    return false
+                }
+            }
+
             if segment.tokens.next == ":" {
                 // Nil pattern matching inside of a switch statement case
                 if segment.tokens.current == "nil" {
@@ -254,29 +329,39 @@ private extension SwiftGrammar {
             }
 
             if let previousToken = segment.tokens.previous {
-                // Highlight the '(set)' part of setter access modifiers
-                switch segment.tokens.current {
-                case "(":
-                    return accessControlKeywords.contains(previousToken)
-                case "set":
-                    if previousToken == "(" {
-                        return true
-                    }
-                case ")":
-                    return previousToken == "set"
-                default:
-                    break
-                }
-
-                // Don't highlight most keywords when used as a parameter label
-                if !segment.tokens.current.isAny(of: "_", "self", "let", "var", "true", "false") {
-                    guard !previousToken.isAny(of: "(", ",") else {
+                // Don't highlight variables with the same name as a keyword
+                // when used in optional binding, such as if let, guard let:
+                if !segment.tokens.onSameLine.isEmpty, segment.tokens.current != "self" {
+                    guard !previousToken.isAny(of: "let", "var") else {
                         return false
                     }
                 }
 
-                guard !segment.tokens.previous.isAny(of: "func", "`") else {
-                    return false
+                if !declarationKeywords.contains(segment.tokens.current) {
+                    // Highlight the '(set)' part of setter access modifiers
+                    switch segment.tokens.current {
+                    case "(":
+                        return accessControlKeywords.contains(previousToken)
+                    case "set":
+                        if previousToken == "(" {
+                            return true
+                        }
+                    case ")":
+                        return previousToken == "set"
+                    default:
+                        break
+                    }
+
+                    // Don't highlight most keywords when used as a parameter label
+                    if !segment.tokens.current.isAny(of: "_", "self", "let", "var", "true", "false", "inout", "nil") {
+                        guard !previousToken.isAny(of: "(", ",", ">(") else {
+                            return false
+                        }
+                    }
+
+                    guard !segment.tokens.previous.isAny(of: "func", "`") else {
+                        return false
+                    }
                 }
             }
 
@@ -287,12 +372,6 @@ private extension SwiftGrammar {
     struct TypeRule: SyntaxRule {
         var tokenType: TokenType { return .type }
 
-        private let declarationKeywords: Set<String> = [
-            "class", "struct", "enum", "func",
-            "protocol", "typealias", "import",
-            "associatedtype"
-        ]
-
         func matches(_ segment: Segment) -> Bool {
             // Types should not be highlighted when declared
             if let previousToken = segment.tokens.previous {
@@ -301,7 +380,11 @@ private extension SwiftGrammar {
                 }
             }
 
-            guard segment.tokens.current.isCapitalized else {
+            let token = segment.tokens.current.trimmingCharacters(
+                in: CharacterSet(charactersIn: "_")
+            )
+
+            guard token.isCapitalized else {
                 return false
             }
 
@@ -312,7 +395,7 @@ private extension SwiftGrammar {
             // The XCTAssert family of functions is a bit of an edge case,
             // since they start with capital letters. Since they are so
             // commonly used, we'll add a special case for them here:
-            guard !segment.tokens.current.starts(with: "XCTAssert") else {
+            guard !token.starts(with: "XCTAssert") else {
                 return false
             }
 
@@ -323,6 +406,11 @@ private extension SwiftGrammar {
                 // Since the declaration might be on another line, we have to walk
                 // backwards through all tokens until we've found enough information.
                 for token in segment.tokens.all.reversed() {
+                    // Highlight return type generics as normal
+                    if token == "->" {
+                        return true
+                    }
+
                     if !foundOpeningBracket && token == "<" {
                         foundOpeningBracket = true
                     }
@@ -356,11 +444,15 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .dotAccess }
 
         func matches(_ segment: Segment) -> Bool {
-            guard segment.tokens.previous.isAny(of: ".", "(.", "[.") else {
+            guard !segment.tokens.onSameLine.isEmpty else {
                 return false
             }
 
-            guard !segment.tokens.onSameLine.isEmpty else {
+            guard segment.isValidSymbol else {
+                return false
+            }
+
+            guard segment.tokens.previous.isAny(of: ".", "(.", "[.") else {
                 return false
             }
 
@@ -376,7 +468,7 @@ private extension SwiftGrammar {
         var tokenType: TokenType { return .property }
 
         func matches(_ segment: Segment) -> Bool {
-            return segment.tokens.previous == "\\."
+            return segment.tokens.previous.isAny(of: #"\."#, #"(\."#)
         }
     }
 
@@ -385,6 +477,10 @@ private extension SwiftGrammar {
 
         func matches(_ segment: Segment) -> Bool {
             guard !segment.tokens.onSameLine.isEmpty else {
+                return false
+            }
+
+            guard segment.isValidSymbol else {
                 return false
             }
 
@@ -398,6 +494,12 @@ private extension SwiftGrammar {
 
             guard !segment.prefixedByDotAccess else {
                 return false
+            }
+
+            if let next = segment.tokens.next {
+                guard !next.hasPrefix("(") else {
+                    return false
+                }
             }
 
             return segment.tokens.onSameLine.first != "import"
@@ -419,9 +521,11 @@ private extension Segment {
         var previousToken: String?
 
         for token in tokens.onSameLine {
-            guard previousToken != "\\" else {
-                previousToken = token
-                continue
+            if token.hasPrefix("(") || token.hasPrefix("#(") || token.hasPrefix("\"") {
+                guard previousToken != "\\" else {
+                    previousToken = token
+                    continue
+                }
             }
 
             if token == start {
@@ -476,7 +580,34 @@ private extension Segment {
         return true
     }
 
+    var isWithinRawStringInterpolation: Bool {
+        // Quick fix for supporting single expressions within raw string
+        // interpolation, a proper fix should be developed ASAP.
+        switch tokens.current {
+        case "\\":
+            return tokens.previous != "\\" && tokens.next == "#"
+        case "#":
+            return tokens.previous == "\\" && tokens.next == "("
+        case "(":
+            return tokens.onSameLine.suffix(2) == ["\\", "#"]
+        case ")":
+            let suffix = tokens.onSameLine.suffix(4)
+            return suffix.prefix(3) == ["\\", "#", "("]
+        default:
+            let suffix = tokens.onSameLine.suffix(3)
+            return suffix == ["\\", "#", "("] && tokens.next == ")"
+        }
+    }
+
     var prefixedByDotAccess: Bool {
         return tokens.previous == "(." || prefix.hasSuffix(" .")
+    }
+
+    var isValidSymbol: Bool {
+        guard let firstCharacter = tokens.current.first else {
+            return false
+        }
+
+        return firstCharacter == "_" || firstCharacter.isLetter
     }
 }

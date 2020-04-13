@@ -88,6 +88,48 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testFunctionDeclarationWithKeywordArgumentLabelOnNewLine() {
+        let components = highlighter.highlight("""
+        func a(
+            for b: B
+        )
+        """)
+
+        XCTAssertEqual(components, [
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("a("),
+            .whitespace("\n    "),
+            .plainText("for"),
+            .whitespace(" "),
+            .plainText("b:"),
+            .whitespace(" "),
+            .token("B", .type),
+            .whitespace("\n"),
+            .plainText(")")
+        ])
+    }
+
+    func testGenericFunctionDeclarationWithKeywordArgumentLabel() {
+        let components = highlighter.highlight("func perform<O: AnyObject>(for object: O) {}")
+
+        XCTAssertEqual(components, [
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("perform<O:"),
+            .whitespace(" "),
+            .token("AnyObject", .type),
+            .plainText(">(for"),
+            .whitespace(" "),
+            .plainText("object:"),
+            .whitespace(" "),
+            .token("O", .type),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("{}")
+        ])
+    }
+
     func testGenericFunctionDeclarationWithoutConstraints() {
         let components = highlighter.highlight("func hello<A, B>(a: A, b: B)")
 
@@ -174,6 +216,33 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
             .plainText("?"),
             .whitespace(" "),
             .plainText("{}")
+        ])
+    }
+
+    func testFunctionDeclarationWithGenericReturnType() {
+        let components = highlighter.highlight("""
+        func array() -> Array<Element> { return [] }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("array()"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("Array", .type),
+            .plainText("<"),
+            .token("Element", .type),
+            .plainText(">"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("return", .keyword),
+            .whitespace(" "),
+            .plainText("[]"),
+            .whitespace(" "),
+            .plainText("}")
         ])
     }
 
@@ -376,6 +445,39 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
             .token("UIViewController", .type),
             .whitespace(" "),
             .plainText("{"),
+            .whitespace(" "),
+            .plainText("}")
+        ])
+    }
+
+    func testExtensionDeclarationWithConvenienceInitializer() {
+        let components = highlighter.highlight("""
+        extension Node { convenience init(name: String) { self.init() } }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("extension", .keyword),
+            .whitespace(" "),
+            .token("Node", .type),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("convenience", .keyword),
+            .whitespace(" "),
+            .token("init", .keyword),
+            .plainText("(name:"),
+            .whitespace(" "),
+            .token("String", .type),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("self", .keyword),
+            .plainText("."),
+            .token("init", .keyword),
+            .plainText("()"),
+            .whitespace(" "),
+            .plainText("}"),
             .whitespace(" "),
             .plainText("}")
         ])
@@ -589,6 +691,27 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testPropertyDeclarationAfterCommentEndingWithVarKeyword() {
+        let components = highlighter.highlight("""
+        // var
+        var number = 7
+        """)
+
+        XCTAssertEqual(components, [
+            .token("//", .comment),
+            .whitespace(" "),
+            .token("var", .comment),
+            .whitespace("\n"),
+            .token("var", .keyword),
+            .whitespace(" "),
+            .plainText("number"),
+            .whitespace(" "),
+            .plainText("="),
+            .whitespace(" "),
+            .token("7", .number)
+        ])
+    }
+
     func testSubscriptDeclaration() {
         let components = highlighter.highlight("""
         extension Collection {
@@ -612,6 +735,45 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
             .plainText("->"),
             .whitespace(" "),
             .token("Value", .type),
+            .plainText("?"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("return", .keyword),
+            .whitespace(" "),
+            .token("nil", .keyword),
+            .whitespace(" "),
+            .plainText("}"),
+            .whitespace("\n"),
+            .plainText("}")
+        ])
+    }
+
+    func testGenericSubscriptDeclaration() {
+        let components = highlighter.highlight("""
+        extension Collection {
+            subscript<T>(key: Key<T>) -> T? { return nil }
+        }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("extension", .keyword),
+            .whitespace(" "),
+            .token("Collection", .type),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace("\n    "),
+            .token("subscript", .keyword),
+            .plainText("<T>(key:"),
+            .whitespace(" "),
+            .token("Key", .type),
+            .plainText("<"),
+            .token("T", .type),
+            .plainText(">)"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("T", .type),
             .plainText("?"),
             .whitespace(" "),
             .plainText("{"),
@@ -811,6 +973,76 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testFunctionDeclarationWithOpaqueReturnType() {
+        let components = highlighter.highlight(#"func make() -> some View { Text("!") }"#)
+
+        XCTAssertEqual(components, [
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("make()"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("some", .keyword),
+            .whitespace(" "),
+            .token("View", .type),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("Text", .type),
+            .plainText("("),
+            .token(#""!""#, .string),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("}")
+        ])
+    }
+
+    func testPrefixFunctionDeclaration() {
+        let components = highlighter.highlight("prefix func !(rhs: Bool) -> Bool { !rhs }")
+
+        XCTAssertEqual(components, [
+            .token("prefix", .keyword),
+            .whitespace(" "),
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("!(rhs:"),
+            .whitespace(" "),
+            .token("Bool", .type),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("Bool", .type),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .plainText("!rhs"),
+            .whitespace(" "),
+            .plainText("}")
+        ])
+    }
+
+    func testEnumDeclarationWithSomeCase() {
+        let components = highlighter.highlight("""
+        enum MyEnum { case some }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("enum", .keyword),
+            .whitespace(" "),
+            .plainText("MyEnum"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .token("case", .keyword),
+            .whitespace(" "),
+            .plainText("some"),
+            .whitespace(" "),
+            .plainText("}")
+        ])
+    }
+
     func testIndirectEnumDeclaration() {
         let components = highlighter.highlight("""
         indirect enum Content {
@@ -844,6 +1076,36 @@ final class DeclarationTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testWrappedPropertyDeclarations() {
+        let components = highlighter.highlight("""
+        struct User {
+            @Persisted(key: "name") var name: String
+        }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("struct", .keyword),
+            .whitespace(" "),
+            .plainText("User"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace("\n    "),
+            .token("@Persisted", .keyword),
+            .plainText("(key:"),
+            .whitespace(" "),
+            .token(#""name""#, .string),
+            .plainText(")"),
+            .whitespace(" "),
+            .token("var", .keyword),
+            .whitespace(" "),
+            .plainText("name:"),
+            .whitespace(" "),
+            .token("String", .type),
+            .whitespace("\n"),
+            .plainText("}")
+        ])
+    }
+
     func testAllTestsRunOnLinux() {
         XCTAssertTrue(TestCaseVerifier.verifyLinuxTests((type(of: self)).allTests))
     }
@@ -857,10 +1119,13 @@ extension DeclarationTests {
             ("testPublicFunctionDeclarationWithDocumentationEndingWithDot", testPublicFunctionDeclarationWithDocumentationEndingWithDot),
             ("testFunctionDeclarationWithEmptyExternalLabel", testFunctionDeclarationWithEmptyExternalLabel),
             ("testFunctionDeclarationWithKeywordArgumentLabel", testFunctionDeclarationWithKeywordArgumentLabel),
+            ("testFunctionDeclarationWithKeywordArgumentLabelOnNewLine", testFunctionDeclarationWithKeywordArgumentLabelOnNewLine),
+            ("testGenericFunctionDeclarationWithKeywordArgumentLabel", testGenericFunctionDeclarationWithKeywordArgumentLabel),
             ("testGenericFunctionDeclarationWithoutConstraints", testGenericFunctionDeclarationWithoutConstraints),
             ("testGenericFunctionDeclarationWithSingleConstraint", testGenericFunctionDeclarationWithSingleConstraint),
             ("testGenericFunctionDeclarationWithMultipleConstraints", testGenericFunctionDeclarationWithMultipleConstraints),
             ("testGenericFunctionDeclarationWithGenericParameter", testGenericFunctionDeclarationWithGenericParameter),
+            ("testFunctionDeclarationWithGenericReturnType", testFunctionDeclarationWithGenericReturnType),
             ("testGenericStructDeclaration", testGenericStructDeclaration),
             ("testClassDeclaration", testClassDeclaration),
             ("testCompactClassDeclarationWithInitializer", testCompactClassDeclarationWithInitializer),
@@ -870,6 +1135,7 @@ extension DeclarationTests {
             ("testProtocolDeclaration", testProtocolDeclaration),
             ("testProtocolDeclarationWithAssociatedTypes", testProtocolDeclarationWithAssociatedTypes),
             ("testExtensionDeclaration", testExtensionDeclaration),
+            ("testExtensionDeclarationWithConvenienceInitializer", testExtensionDeclarationWithConvenienceInitializer),
             ("testExtensionDeclarationWithConstraint", testExtensionDeclarationWithConstraint),
             ("testLazyPropertyDeclaration", testLazyPropertyDeclaration),
             ("testDynamicPropertyDeclaration", testDynamicPropertyDeclaration),
@@ -877,7 +1143,9 @@ extension DeclarationTests {
             ("testPropertyDeclarationWithWillSet", testPropertyDeclarationWithWillSet),
             ("testPropertyDeclarationWithDidSet", testPropertyDeclarationWithDidSet),
             ("testPropertyWithSetterAccessLevel", testPropertyWithSetterAccessLevel),
+            ("testPropertyDeclarationAfterCommentEndingWithVarKeyword", testPropertyDeclarationAfterCommentEndingWithVarKeyword),
             ("testSubscriptDeclaration", testSubscriptDeclaration),
+            ("testGenericSubscriptDeclaration", testGenericSubscriptDeclaration),
             ("testDeferDeclaration", testDeferDeclaration),
             ("testFunctionDeclarationWithInOutParameter", testFunctionDeclarationWithInOutParameter),
             ("testFunctionDeclarationWithNonEscapedKeywordAsName", testFunctionDeclarationWithNonEscapedKeywordAsName),
@@ -885,7 +1153,11 @@ extension DeclarationTests {
             ("testFunctionDeclarationWithPreProcessors", testFunctionDeclarationWithPreProcessors),
             ("testNonMutatingFunction", testNonMutatingFunction),
             ("testRethrowingFunctionDeclaration", testRethrowingFunctionDeclaration),
-            ("testIndirectEnumDeclaration", testIndirectEnumDeclaration)
+            ("testFunctionDeclarationWithOpaqueReturnType", testFunctionDeclarationWithOpaqueReturnType),
+            ("testPrefixFunctionDeclaration", testPrefixFunctionDeclaration),
+            ("testEnumDeclarationWithSomeCase", testEnumDeclarationWithSomeCase),
+            ("testIndirectEnumDeclaration", testIndirectEnumDeclaration),
+            ("testWrappedPropertyDeclarations", testWrappedPropertyDeclarations)
         ]
     }
 }

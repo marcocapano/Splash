@@ -110,6 +110,27 @@ final class ClosureTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testClosureWithInoutArgument() {
+        let components = highlighter.highlight("func add(closure: (inout Value) -> Void)")
+
+        XCTAssertEqual(components, [
+            .token("func", .keyword),
+            .whitespace(" "),
+            .plainText("add(closure:"),
+            .whitespace(" "),
+            .plainText("("),
+            .token("inout", .keyword),
+            .whitespace(" "),
+            .token("Value", .type),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("Void", .type),
+            .plainText(")")
+        ])
+    }
+
     func testPassingClosureAsArgument() {
         let components = highlighter.highlight("object.call({ $0 })")
 
@@ -121,6 +142,102 @@ final class ClosureTests: SyntaxHighlighterTestCase {
             .plainText("$0"),
             .whitespace(" "),
             .plainText("})")
+        ])
+    }
+
+    func testNestedEscapingClosure() {
+        let components = highlighter.highlight("let closures = [(@escaping () -> Void) -> Void]()")
+
+        XCTAssertEqual(components, [
+            .token("let", .keyword),
+            .whitespace(" "),
+            .plainText("closures"),
+            .whitespace(" "),
+            .plainText("="),
+            .whitespace(" "),
+            .plainText("[("),
+            .token("@escaping", .keyword),
+            .whitespace(" "),
+            .plainText("()"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("Void", .type),
+            .plainText(")"),
+            .whitespace(" "),
+            .plainText("->"),
+            .whitespace(" "),
+            .token("Void", .type),
+            .plainText("]()")
+        ])
+    }
+
+    func testClosureArgumentShorthands() {
+        let components = highlighter.highlight("""
+        call {
+            print($0)
+            _ = $1
+            $2()
+        }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("call", .call),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace("\n    "),
+            .token("print", .call),
+            .plainText("($0)"),
+            .whitespace("\n    "),
+            .token("_", .keyword),
+            .whitespace(" "),
+            .plainText("="),
+            .whitespace(" "),
+            .plainText("$1"),
+            .whitespace("\n    "),
+            .plainText("$2()"),
+            .whitespace("\n"),
+            .plainText("}")
+        ])
+    }
+
+    func testClosureWithWeakSelfCaptureList() {
+        let components = highlighter.highlight("closure { [weak self] in }")
+
+        XCTAssertEqual(components, [
+            .token("closure", .call),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .plainText("["),
+            .token("weak", .keyword),
+            .whitespace(" "),
+            .token("self", .keyword),
+            .plainText("]"),
+            .whitespace(" "),
+            .token("in", .keyword),
+            .whitespace(" "),
+            .plainText("}")
+        ])
+    }
+
+    func testClosureWithUnownedSelfCaptureList() {
+        let components = highlighter.highlight("closure { [unowned self] in }")
+
+        XCTAssertEqual(components, [
+            .token("closure", .call),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace(" "),
+            .plainText("["),
+            .token("unowned", .keyword),
+            .whitespace(" "),
+            .token("self", .keyword),
+            .plainText("]"),
+            .whitespace(" "),
+            .token("in", .keyword),
+            .whitespace(" "),
+            .plainText("}")
         ])
     }
 
@@ -138,7 +255,12 @@ extension ClosureTests {
             ("testClosureArgumentWithSingleArgument", testClosureArgumentWithSingleArgument),
             ("testClosureArgumentWithMultipleArguments", testClosureArgumentWithMultipleArguments),
             ("testEscapingClosureArgument", testEscapingClosureArgument),
-            ("testPassingClosureAsArgument", testPassingClosureAsArgument)
+            ("testClosureWithInoutArgument", testClosureWithInoutArgument),
+            ("testPassingClosureAsArgument", testPassingClosureAsArgument),
+            ("testNestedEscapingClosure", testNestedEscapingClosure),
+            ("testClosureArgumentShorthands", testClosureArgumentShorthands),
+            ("testClosureWithWeakSelfCaptureList", testClosureWithWeakSelfCaptureList),
+            ("testClosureWithUnownedSelfCaptureList", testClosureWithUnownedSelfCaptureList)
         ]
     }
 }

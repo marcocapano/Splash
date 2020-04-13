@@ -62,6 +62,44 @@ final class StatementTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testIfLetStatementWithKeywordSymbolName() {
+        let components = highlighter.highlight("if let override = optional {}")
+
+        XCTAssertEqual(components, [
+            .token("if", .keyword),
+            .whitespace(" "),
+            .token("let", .keyword),
+            .whitespace(" "),
+            .plainText("override"),
+            .whitespace(" "),
+            .plainText("="),
+            .whitespace(" "),
+            .plainText("optional"),
+            .whitespace(" "),
+            .plainText("{}")
+        ])
+    }
+
+    func testGuardStatementUnwrappingWeakSelf() {
+        let components = highlighter.highlight("guard let self = self else {}")
+
+        XCTAssertEqual(components, [
+            .token("guard", .keyword),
+            .whitespace(" "),
+            .token("let", .keyword),
+            .whitespace(" "),
+            .token("self", .keyword),
+            .whitespace(" "),
+            .plainText("="),
+            .whitespace(" "),
+            .token("self", .keyword),
+            .whitespace(" "),
+            .token("else", .keyword),
+            .whitespace(" "),
+            .plainText("{}")
+        ])
+    }
+
     func testSwitchStatement() {
         let components = highlighter.highlight("""
         switch variable {
@@ -106,7 +144,7 @@ final class StatementTests: SyntaxHighlighterTestCase {
         ])
     }
 
-    func testSwitchStatementWithAssociatedValues() {
+    func testSwitchStatementWithSingleAssociatedValue() {
         let components = highlighter.highlight("""
         switch value {
         case .one(let a): break
@@ -128,6 +166,42 @@ final class StatementTests: SyntaxHighlighterTestCase {
             .token("let", .keyword),
             .whitespace(" "),
             .plainText("a):"),
+            .whitespace(" "),
+            .token("break", .keyword),
+            .whitespace("\n"),
+            .plainText("}")
+        ])
+    }
+
+    func testSwitchStatementWithMultipleAssociatedValues() {
+        let components = highlighter.highlight("""
+        switch value {
+        case .one(let a), .two(let b): break
+        }
+        """)
+
+        XCTAssertEqual(components, [
+            .token("switch", .keyword),
+            .whitespace(" "),
+            .plainText("value"),
+            .whitespace(" "),
+            .plainText("{"),
+            .whitespace("\n"),
+            .token("case", .keyword),
+            .whitespace(" "),
+            .plainText("."),
+            .token("one", .dotAccess),
+            .plainText("("),
+            .token("let", .keyword),
+            .whitespace(" "),
+            .plainText("a),"),
+            .whitespace(" "),
+            .plainText("."),
+            .token("two", .dotAccess),
+            .plainText("("),
+            .token("let", .keyword),
+            .whitespace(" "),
+            .plainText("b):"),
             .whitespace(" "),
             .token("break", .keyword),
             .whitespace("\n"),
@@ -330,6 +404,24 @@ final class StatementTests: SyntaxHighlighterTestCase {
         ])
     }
 
+    func testInitializingTypeWithLeadingUnderscore() {
+        let components = highlighter.highlight("_MyType()")
+
+        XCTAssertEqual(components, [
+            .token("_MyType", .type),
+            .plainText("()")
+        ])
+    }
+
+    func testCallingFunctionWithLeadingUnderscore() {
+        let components = highlighter.highlight("_myFunction()")
+
+        XCTAssertEqual(components, [
+            .token("_myFunction", .call),
+            .plainText("()")
+        ])
+    }
+
     func testAllTestsRunOnLinux() {
         XCTAssertTrue(TestCaseVerifier.verifyLinuxTests((type(of: self)).allTests))
     }
@@ -341,14 +433,19 @@ extension StatementTests {
             ("testImportStatement", testImportStatement),
             ("testImportStatementWithSubmodule", testImportStatementWithSubmodule),
             ("testChainedIfElseStatements", testChainedIfElseStatements),
+            ("testIfLetStatementWithKeywordSymbolName", testIfLetStatementWithKeywordSymbolName),
+            ("testGuardStatementUnwrappingWeakSelf", testGuardStatementUnwrappingWeakSelf),
             ("testSwitchStatement", testSwitchStatement),
-            ("testSwitchStatementWithAssociatedValues", testSwitchStatementWithAssociatedValues),
+            ("testSwitchStatementWithSingleAssociatedValue", testSwitchStatementWithSingleAssociatedValue),
+            ("testSwitchStatementWithMultipleAssociatedValues", testSwitchStatementWithMultipleAssociatedValues),
             ("testSwitchStatementWithFallthrough", testSwitchStatementWithFallthrough),
             ("testSwitchStatementWithTypePatternMatching", testSwitchStatementWithTypePatternMatching),
             ("testSwitchStatementWithOptional", testSwitchStatementWithOptional),
             ("testForStatementWithStaticProperty", testForStatementWithStaticProperty),
             ("testForStatementWithContinue", testForStatementWithContinue),
-            ("testRepeatWhileStatement", testRepeatWhileStatement)
+            ("testRepeatWhileStatement", testRepeatWhileStatement),
+            ("testInitializingTypeWithLeadingUnderscore", testInitializingTypeWithLeadingUnderscore),
+            ("testCallingFunctionWithLeadingUnderscore", testCallingFunctionWithLeadingUnderscore)
         ]
     }
 }
